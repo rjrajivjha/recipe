@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Recipe, Cuisine, RecipeIngredients, Ingredients, MealTypes, MeatTypes
+from .models import Recipe, Cuisine, RecipeIngredients, Ingredient, MealTypes, MeatTypes
 
 
 # Register your models here.
@@ -17,11 +17,11 @@ class CuisineAdmin(admin.ModelAdmin):
 
 @admin.register(RecipeIngredients)
 class RecipeIngredientsAdmin(admin.ModelAdmin):
-    list_display = ("id", "recipe", "ingredient")
+    list_display = ("id", "recipe", "ingredient", "comments", "unit_value", "unit_data_type", "unit_type", "variation")
 
 
-@admin.register(Ingredients)
-class IngredientsAdmin(admin.ModelAdmin):
+@admin.register(Ingredient)
+class IngredientAdmin(admin.ModelAdmin):
     list_display = ("id", "name")
 
 

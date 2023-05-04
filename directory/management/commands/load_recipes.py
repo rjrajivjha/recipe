@@ -3,11 +3,11 @@ import logging
 import numpy as np
 import pandas as pd
 import os
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.core.management.base import BaseCommand, CommandError
 
 from ...constants import UNIT_TYPE, NUMBER, STRING
-from ...models import Recipe, Cuisine, RecipeIngredients, MeatTypes, MealTypes, Ingredients
+from ...models import Recipe, Cuisine, RecipeIngredients, MeatTypes, MealTypes, Ingredient
 from .utils import parse_reader, send_email, sanitized
 
 
@@ -86,18 +86,19 @@ class RecipeDump(object):
         for unit_value in UNIT_TYPE:
             if not pd.isna(record[unit_value[1].lower()]):
                 recipe_ingredients.unit_value = record[unit_value[1].lower()]
-                recipe_ingredients.unit_type = unit_value[1]
+                recipe_ingredients.unit_type = unit_value[0]
                 recipe_ingredients.unit_data_type = NUMBER if type(record[unit_value[1].lower()]) is not str else STRING
-
         recipe_ingredients.recipe = recipe
         recipe_ingredients.ingredient = ingredient
         recipe_ingredients.alternate = alternate
         recipe_ingredients.comments = record["comments"]
         recipe_ingredients.variation = record["variation / alternate"]
         recipe_ingredients.save()
+        self.logger.warning(f" Saving Recipe {recipe, recipe_ingredients, ingredient, alternate} ")
 
     def process(self, input_file, output_file):
         objects = []
+        i = 0
         recipe = Recipe()
         with open(output_file, 'w') as out_file:
             records = parse_reader(input_file)
@@ -107,17 +108,33 @@ class RecipeDump(object):
                     recipe = Recipe()
                     try:
                         cuisine = Cuisine.objects.get(name=sanitized(record["cuisine"]))
-                        meat_type = MeatTypes.objects.get(name=sanitized(record["meat type"]))
-                        meal_type = MealTypes.objects.get(name=sanitized(record["meal type"]))
-                        ingredient = Ingredients.objects.get(name=sanitized(record["actual"]))
-                        alternate_ing = Ingredients.objects.get(name=sanitized(record["alternate"]))
+                        ingredient = Ingredient.objects.get(name=sanitized(record["actual"]))
                     except Exception as e:
-                        out_file.write(f"\n Either Cuisine, meat type or meal type data is not loaded."
+                        out_file.write(f"\n Either Cuisine: {record['cuisine']} or ingredient: {record['actual']} is not loaded."
                                        f"at line {idx + 1}: {e}")
-                        self.logger.warning(f"\n Either Cuisine, meat type or meal type data is not loaded."
+                        self.logger.warning(f"\n Either Cuisine: {record['cuisine']} or ingredient: {record['actual']} is not loaded."
                                             f"at line {idx + 1}: {e}")
                         next_recipe_flag = True
                         continue
+
+                    if not pd.isna(record["meat type"]):
+                        try:
+                            meat_type = MeatTypes.objects.get(name=sanitized(record["meat type"]))
+                        except Exception as e:
+                            out_file.write(f"\n meat type: {record['meat type']}  data is not loaded."
+                                           f"at line {idx + 1}: {e}")
+                            self.logger.warning(f"\n meat type: {record['meat type']}  data is not loaded."
+                                                f"at line {idx + 1}: {e}")
+
+                    if not pd.isna(record["meal type"]):
+                        try:
+                            meal_type = MealTypes.objects.get(name=sanitized(record["meal type"]))
+                        except Exception as e:
+                            out_file.write(f"\n meal type: {record['meal type']} data is not loaded."
+                                           f"at line {idx + 1}: {e}")
+                            self.logger.warning(f"\n meal type: {record['meal type']}  data is not loaded."
+                                                f"at line {idx + 1}: {e}")
+
                     recipe.cuisine = cuisine
                     recipe.meat_type = meat_type
                     recipe.meal_type = meal_type
@@ -161,9 +178,23 @@ class RecipeDump(object):
                     recipe.calcium = record["calcium"]
                     recipe.fibre = record["fibre"]
                     recipe.sodium = record["sodium"]
-                    recipe.save()
-                    next_recipe_flag = False
+                    try:
+                        recipe.save()
+                    except IntegrityError:
+                        recipe.name = recipe.name+"_1"
+                        recipe.save()
+                    except Exception as e:
+                        out_file.write(f"\n Recipe: {recipe.name} data is not loaded."
+                                       f"at line {idx + 1}: {e}")
+                        self.logger.warning(f"\n Recipe: {recipe.name}  data is not loaded."
+                                            f"at line {idx + 1}: {e}")
+                        continue
 
+                    next_recipe_flag = False
+                    if not pd.isna(record["alternate"]):
+                        alternate_ing = Ingredient.objects.get(name=sanitized(record["alternate"]))
+                    else:
+                        alternate_ing = ""
                     # recipe ingredient save
                     self.save_recipe_ingredient(recipe, ingredient, alternate_ing, record)
 
@@ -172,8 +203,12 @@ class RecipeDump(object):
                         continue
                     else:
                         try:
-                            ingredient = Ingredients.objects.get(name=sanitized(record["actual"]))
-                            alternate_ing = Ingredients.objects.get(name=sanitized(record["alternate"]))
+                            print(sanitized(record["actual"]))
+                            ingredient = Ingredient.objects.get(name=sanitized(record["actual"]))
+                            if not pd.isna(record["alternate"]):
+                                alternate_ing = Ingredient.objects.get(name=sanitized(record["alternate"]))
+                            else:
+                                alternate_ing = ""
                             self.save_recipe_ingredient(recipe, ingredient, alternate_ing, record)
                         except Exception as e:
                             out_file.write(f"\n Ingredient is not loaded."
@@ -182,7 +217,7 @@ class RecipeDump(object):
                                                 f"at line {idx + 1}: {e}")
                             next_recipe_flag = True
                             continue
-                        # recipe ingredient save
+
         htmlgen = f'Hi, There is a update to your upload recipe report.'
         send_email("Load Recipe", htmlgen, output_file, self.recipient)
         os.remove(output_file)

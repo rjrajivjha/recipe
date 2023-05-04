@@ -9,7 +9,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.core.exceptions import ObjectDoesNotExist
 
 from ...constants import UNIT_TYPE, NUMBER, STRING
-from ...models import Recipe, Cuisine, RecipeIngredients, MeatTypes, MealTypes, Ingredients
+from ...models import Recipe, Cuisine, RecipeIngredients, MeatTypes, MealTypes, Ingredient
 from .utils import parse_reader, send_email, sanitized
 
 
@@ -83,9 +83,9 @@ class IngredientDump(object):
             for idx, record in enumerate(records):
                 if not pd.isna(record["actual"]):
                     try:
-                        ingredient = Ingredients.objects.get(name=sanitized(record["actual"]))
-                    except Ingredients.DoesNotExist as e:
-                        ingredient = Ingredients()
+                        ingredient = Ingredient.objects.get(name=sanitized(record["actual"]))
+                    except Ingredient.DoesNotExist as e:
+                        ingredient = Ingredient()
                         ingredient.name = sanitized(record["actual"])
                         ingredient.save()
                     except Exception as e:
@@ -98,9 +98,9 @@ class IngredientDump(object):
 
                 if not pd.isna(record["alternate"]):
                     try:
-                        alt_ingredient = Ingredients.objects.get(name=sanitized(record["alternate"]))
-                    except Ingredients.DoesNotExist:
-                        alt_ingredient = Ingredients()
+                        alt_ingredient = Ingredient.objects.get(name=sanitized(record["alternate"]))
+                    except Ingredient.DoesNotExist:
+                        alt_ingredient = Ingredient()
                         alt_ingredient.name = sanitized(record["alternate"])
                         alt_ingredient.save()
                     except Exception as e:

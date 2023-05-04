@@ -35,6 +35,13 @@ class MealTypes(BaseModel):
         return f"{self.name}"
 
 
+class Ingredient(BaseModel):
+    name = models.CharField(max_length=128, null=False, blank=False, unique=True)
+
+    def __str__(self):
+        return f"{self.name}"
+
+
 class Recipe(BaseModel):
     pdf_number = models.CharField(max_length=128, null=True, blank=True)
     name = models.CharField(max_length=128, null=False, blank=False, unique=True)
@@ -74,26 +81,19 @@ class Recipe(BaseModel):
     calcium = models.CharField(max_length=128, null=True, blank=True)
     fibre = models.CharField(max_length=128, null=True, blank=True)
     sodium = models.CharField(max_length=128, null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.name}"
-
-
-class Ingredients(BaseModel):
-    name = models.CharField(max_length=128, null=False, blank=False, unique=True)
+    ingredients = models.ManyToManyField(Ingredient, through='RecipeIngredients')
 
     def __str__(self):
         return f"{self.name}"
 
 
 class RecipeIngredients(BaseModel):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, unique=False, blank=False, null=False)
-    ingredient = models.ForeignKey(Ingredients, on_delete=models.CASCADE, unique=False, blank=False, null=False)
-    alternate = models.ForeignKey(Ingredients, on_delete=models.CASCADE, unique=False, blank=False, null=False,
-                                  related_name="alternate")
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, unique=False, blank=False, null=False, default=None)
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, unique=False, blank=False, null=False,
+                                   default=None)
+    alternate = models.CharField(max_length=128, blank=True, null=True, default=None)
     comments = models.TextField(blank=True, null=True, default=None)
     unit_value = models.CharField(max_length=128, default=None, null=True)
     unit_data_type = models.CharField(max_length=128, choices=UNIT_DATA_TYPE, default=None, null=True)
     unit_type = models.CharField(max_length=128, choices=UNIT_TYPE, default=None, null=True)
     variation = models.TextField(blank=True, null=True, default=None)
-
