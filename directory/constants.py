@@ -93,3 +93,5 @@ UNIT_TYPE = [
     (HEAPED_TSP, "Heaped Tsp"),
     (CATTY, "Catty"),
 ]
+
+EMAIL_HOST_USER = 'fork.rajiv@gmail.com'

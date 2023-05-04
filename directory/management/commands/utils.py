@@ -1,6 +1,12 @@
 import csv
 import pandas as pd
 import openpyxl
+from textblob import TextBlob
+
+from django.core.mail import BadHeaderError, send_mail, EmailMessage
+
+from django.http import HttpResponse, HttpResponseRedirect
+from ...constants import EMAIL_HOST_USER
 
 
 def clean_excel_data(df):
@@ -22,6 +28,17 @@ def parse_reader(in_file, delimiter: str = '|'):
     for column in df.columns:
         a = column.replace("\n", " ").split("_")
         column = a[0] if "Unnamed" in a[1] else a[1]
-        df.rename(columns={df.columns[i]: column}, inplace=True)
+        df.rename(columns={df.columns[i]: column.lower()}, inplace=True)
         i += 1
+    print(df.columns)
     return clean_excel_data(df)
+
+
+def sanitized(word):
+    return TextBlob(word.strip().lower()).correct()
+
+def send_email(subject, message, file, recipient):
+    msg = EmailMessage(subject, message, EMAIL_HOST_USER, [recipient])
+    msg.content_subtype = "html"
+    msg.attach_file(file)
+    msg.send()
